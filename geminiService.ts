@@ -1,7 +1,10 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { Subject, ExamType, Question } from "../types";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { Subject, ExamType, Question } from "./types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+// In Vite, variables defined via 'define' are replaced as literal strings.
+// If using standard Vite env variables, you'd use import.meta.env.VITE_GEMINI_API_KEY
+const API_KEY = (process.env.GEMINI_API_KEY as string) || "";
+const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
 export async function generateHOTSQuestions(params: {
   subject: Subject;
@@ -15,51 +18,55 @@ export async function generateHOTSQuestions(params: {
   const { subject, examType, grade, numPG, numIsian, numUraian, topics } = params;
 
   const prompt = `
-    Generate a set of school exam questions for:
+    Generate a set of school exam questions for SDN 1 Cempaka:
     Subject: ${subject}
     Exam Type: ${examType}
     Grade: ${grade}
     ${topics ? `Topics/Materials: ${topics}` : ""}
     
     Requirements:
-    1. Standard: Kurikulum Merdeka with Deep Learning approach.
+    1. Standard: Kurikulum Merdeka with Deep Learning/HOTS approach.
     2. Difficulty: High Order Thinking Skills (HOTS) - focusing on analysis, evaluation, and creation.
     3. Language: Indonesian (Bahasa Indonesia).
     4. Composition:
-       - ${numPG} Multiple Choice (PG) with 4 options (A, B, C, D).
-       - ${numIsian} Short Answer (Isian).
+       - ${numPG} Multiple Choice (PG) questions. Each MUST have 4 options (A, B, C, D).
+       - ${numIsian} Short Answer (Isian) questions.
        - ${numUraian} Essay/Long Answer (Uraian).
     
     Return the output as a JSON array of question objects.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: {
+  if (!genAI || !API_KEY) {
+    throw new Error("Gemini API Key is missing. Please check your .env.local file.");
+  }
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    generationConfig: {
       responseMimeType: "application/json",
       responseSchema: {
-        type: Type.ARRAY,
+        type: SchemaType.ARRAY,
         items: {
-          type: Type.OBJECT,
+          type: SchemaType.OBJECT,
           properties: {
-            id: { type: Type.STRING },
+            id: { type: SchemaType.STRING },
             type: { 
-              type: Type.STRING,
+              type: SchemaType.STRING,
               enum: ["PG", "Isian", "Uraian"]
             },
-            question: { type: Type.STRING },
+            question: { type: SchemaType.STRING },
             options: {
-              type: Type.OBJECT,
+              type: SchemaType.OBJECT,
+              description: "Only required for type 'PG'",
               properties: {
-                A: { type: Type.STRING },
-                B: { type: Type.STRING },
-                C: { type: Type.STRING },
-                D: { type: Type.STRING },
+                A: { type: SchemaType.STRING },
+                B: { type: SchemaType.STRING },
+                C: { type: SchemaType.STRING },
+                D: { type: SchemaType.STRING },
               },
               required: ["A", "B", "C", "D"]
             },
-            answer: { type: Type.STRING }
+            answer: { type: SchemaType.STRING }
           },
           required: ["id", "type", "question", "answer"]
         }
@@ -68,7 +75,9 @@ export async function generateHOTSQuestions(params: {
   });
 
   try {
-    const text = response.text || "[]";
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text() || "[]";
     const parsed = JSON.parse(text);
     return parsed as Question[];
   } catch (error) {

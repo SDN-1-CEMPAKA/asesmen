@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Subject, ExamType, Question, ExamData } from './types';
-import { generateHOTSQuestions } from './services/geminiService';
+import { generateHOTSQuestions } from './geminiService';
 
 export default function App() {
   const [config, setConfig] = useState({
