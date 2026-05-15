@@ -1,0 +1,6 @@
+{
+  "name": "Sipeci: SDN 1 Cempaka Exam Generator",
+  "description": "AI-powered exam generator for SDN 1 Cempaka based on Kurikulum Merdeka. Generates HOTS questions with official printable A4 layouts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
